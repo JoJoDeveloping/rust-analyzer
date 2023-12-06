@@ -1578,8 +1578,8 @@ fn implicitly_sized_clauses<'a>(
     substitution: &'a Substitution,
     resolver: &Resolver,
 ) -> impl Iterator<Item = WhereClause> + 'a {
-    let is_trait_def = matches!(def, GenericDefId::TraitId(..));
-    let generic_args = &substitution.as_slice(Interner)[is_trait_def as usize..];
+    let arg_to_skip = def.in_trait_self_ty_idx(db);
+    let generic_args = substitution.as_slice(Interner);
     let sized_trait = db
         .lang_item(resolver.krate(), LangItem::Sized)
         .and_then(|lang_item| lang_item.as_trait().map(to_chalk_trait_id));
@@ -1587,6 +1587,13 @@ fn implicitly_sized_clauses<'a>(
     sized_trait.into_iter().flat_map(move |sized_trait| {
         let implicitly_sized_tys = generic_args
             .iter()
+            .enumerate()
+            .filter_map(move |(idx, arg)| {
+                match arg_to_skip {
+                    Some(skip_idx) if idx == skip_idx => None,
+                    _ => Some(arg)
+                }
+            })
             .filter_map(|generic_arg| generic_arg.ty(Interner))
             .filter(move |&self_ty| !explicitly_unsized_tys.contains(self_ty));
         implicitly_sized_tys.map(move |self_ty| {

@@ -930,6 +930,33 @@ impl GenericDefId {
             GenericDefId::EnumVariantId(_) => (FileId::BOGUS.into(), None),
         }
     }
+
+    fn if_in_trait<Id: Lookup, O>(id: Id, db: &Id::Database<'_>, r: O) -> Option<O> where
+        Id::Data: ItemTreeLoc<Container=ItemContainerId> {
+        if matches!(id.lookup(db).container(), ItemContainerId::TraitId(_)) {
+            Some(r)
+        } else {
+            None
+        }
+    }
+
+    pub fn in_trait_self_ty_idx(self, db: &dyn DefDatabase) -> Option<usize> {
+        let params = db.generic_params(self);
+        let len = params.lifetimes.len() + params.type_or_consts.len();
+        match self {
+            GenericDefId::TraitId(_) => {Some(0)}
+            GenericDefId::FunctionId(id) => {
+                Self::if_in_trait(id, db, len)
+            }
+            GenericDefId::TypeAliasId(id) => {
+                Self::if_in_trait(id, db, len)
+            }
+            GenericDefId::ConstId(id) => {
+                Self::if_in_trait(id, db, len)
+            }
+            GenericDefId::AdtId(_) | GenericDefId::TraitAliasId(_) | GenericDefId::ImplId(_) | GenericDefId::EnumVariantId(_) => {None}
+        }
+    }
 }
 
 impl From<AssocItemId> for GenericDefId {
